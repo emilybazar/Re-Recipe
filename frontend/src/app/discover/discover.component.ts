@@ -1,12 +1,11 @@
-import { Component, OnInit } from "@angular/core";
-import { RecipeservicesService } from "../../recipeservices.service";
-import { IRecipe } from "../model/IRecipe";
+import { Component, OnInit } from '@angular/core';
+import { RecipeservicesService } from '../../recipeservices.service';
+import { IRecipe } from '../model/IRecipe';
 
 @Component({
   selector: 'app-discover',
   templateUrl: './discover.component.html',
-  styleUrls: ['./discover.component.css', ]
-  
+  styleUrls: ['./discover.component.css'],
 })
 export class DiscoverComponent implements OnInit {
   recipeList: IRecipe[] = [];
@@ -37,17 +36,23 @@ export class DiscoverComponent implements OnInit {
   }
 
   get uniqueCategories(): string[] {
-    const categories = this.recipeList.flatMap((recipe) => recipe.meal_category || []);
+    const categories = this.recipeList.flatMap(
+      (recipe) => recipe.meal_category || []
+    );
     return Array.from(new Set(categories)).sort();
   }
 
   filteredRecipes(): IRecipe[] {
     return this.recipeList.filter((recipe) => {
-      const matchesSearch = recipe.recipe_name?.toLowerCase().includes(this.searchQuery.toLowerCase());
+      const matchesSearch = recipe.recipe_name
+        ?.toLowerCase()
+        .includes(this.searchQuery.toLowerCase());
       const matchesCategory = this.selectedCategory
-        ? recipe.meal_category?.some((category) => category === this.selectedCategory)
+        ? recipe.meal_category?.some(
+            (category) => category === this.selectedCategory
+          )
         : true;
-      
+
       return matchesSearch && matchesCategory;
     });
   }
@@ -61,17 +66,18 @@ export class DiscoverComponent implements OnInit {
   }
 
   saveSelectedRecipes(): void {
-    const selectedRecipeList = this.recipeList.filter(recipe =>
-      this.selectedRecipes.has(recipe.recipe_ID)
-    );
-  
-    console.log('Saving recipes:', selectedRecipeList);
+    const selectedRecipeIds = this.recipeList
+      .filter((recipe) => this.selectedRecipes.has(recipe.recipe_ID))
+      .map((recipe) => recipe.recipe_ID);
 
-    // Placeholder for API call to save the selected recipes
-    // Example:
-    // this.recipeService.saveSelectedRecipes(selectedRecipeList).subscribe(
-    //   response => console.log('Save successful:', response),
-    //   error => console.error('Save failed:', error)
-    // );
+    console.log('Saving recipes:', selectedRecipeIds);
+    this.recipeService.createCookbookRecipes(selectedRecipeIds).subscribe(
+      (response) => {
+        console.log('good job ben, you saved it!', response);
+      },
+      (error) => {
+        console.error('whoopsie', error);
+      }
+    );
   }
 }

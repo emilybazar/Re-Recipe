@@ -33,7 +33,7 @@ class CookbookModel {
         title: { type: String, default: "My Cookbook" },
         modified_recipes: {
           type: [{ type: mongoose.Schema.Types.ObjectId, ref: "Recipe" }],
-          default: [], 
+          default: [],
         },
       },
       { collection: "cookbooks", timestamps: true }
@@ -57,11 +57,18 @@ class CookbookModel {
     }
   }
 
-  public async createCookbook(userId: string, title: string = "myCookbook"): Promise<void> {
+  public async createCookbook(
+    userId: string,
+    title: string = "myCookbook"
+  ): Promise<void> {
     try {
-      console.log(`Creating cookbook for user_ID: ${userId} with title: ${title}`);
+      console.log(
+        `Creating cookbook for user_ID: ${userId} with title: ${title}`
+      );
 
-      const existingCookbook = await this.model.findOne({ user_ID: userId }).exec();
+      const existingCookbook = await this.model
+        .findOne({ user_ID: userId })
+        .exec();
       if (existingCookbook) {
         console.log(`Cookbook already exists for user_ID: ${userId}`);
         return;
@@ -81,6 +88,56 @@ class CookbookModel {
     }
   }
 
+  public async copyRecipesFromDiscover(
+    response: any,
+    recipe_IDs: any[],
+    user_id: string
+  ): Promise<void> {
+    console.log("here in cookbookModel");
+
+    try {
+      var ObjectId = require("mongoose").Types.ObjectId;
+      const discoverCollection = mongoose.connection.collection("discover");
+      // Fetch all the needed recipes from the Discover collection
+      const objectIdRecipeIDs = recipe_IDs.map((id) => new ObjectId(id));
+
+      const originalRecipes = await discoverCollection
+        .find({ recipe_ID: { $in: objectIdRecipeIDs } })
+        .toArray();
+      // let id = new ObjectId("6741035b0a68f1169e0d8190");
+      // const originalRecipes2 = await discoverCollection.findOne({
+      //   recipe_ID: id,
+      // });
+      // console.log(originalRecipes2);
+      // originalRecipes.push(originalRecipes2);
+
+      // console.log(originalRecipes2);
+
+      if (!originalRecipes || originalRecipes.length === 0) {
+        return response.status(404).json({
+          error: "No recipes found in Discover with the provided IDs!",
+        });
+      }
+
+      // const userCookbook = await cookbookCollection.findOne({ user_ID }).modified_r
+      const filter = { user_ID: user_id };
+
+      const update = {
+        $push: { modified_recipes: { $each: originalRecipes } },
+      };
+
+      const userCookbook = await this.model.findOneAndUpdate(filter, update);
+      await userCookbook.save();
+
+      console.log("Updated cookbook for user:", user_id);
+      return response.status(200).json();
+    } catch (error) {
+      console.error("Failed to copy recipes from Discover:", error);
+      response
+        .status(500)
+        .json({ error: "Failed to copy recipes from Discover" });
+    }
+  }
 
   /**
    * Copies a recipe from the Discover collection and adds it to the user's cookbook.
@@ -89,7 +146,7 @@ class CookbookModel {
    * @param {string} user_ID - The ID of the user to whom the new recipe will belong.
    * @returns {Promise<void>}
    */
-  public async copyRecipeFromDiscover(
+  public async copyRecipeFromDiscover2(
     response: any,
     recipe_ID: string,
     user_ID: string
@@ -250,12 +307,12 @@ class CookbookModel {
     }
   }
 
-    /**
-    * Retrieves all recipes from a user's cookbook.
-    * @param {any} response - The response object to send data back to the client.
-    * @param {string} userId - The ID of the user whose cookbook is being retrieved.
-    * @returns {Promise<void>}
-    */
+  /**
+   * Retrieves all recipes from a user's cookbook.
+   * @param {any} response - The response object to send data back to the client.
+   * @param {string} userId - The ID of the user whose cookbook is being retrieved.
+   * @returns {Promise<void>}
+   */
   public async getAllCookbookRecipes(
     response: any,
     userId: string
@@ -266,12 +323,12 @@ class CookbookModel {
         .findOne({ user_ID: userId })
         .populate("modified_recipes")
         .exec();
-  
+
       // If the cookbook doesn't exist, send an empty array
       if (!cookbook) {
         return response.json([]);
       }
-  
+
       // Return all recipes in the cookbook (could be empty)
       response.json(cookbook.modified_recipes);
     } catch (error) {

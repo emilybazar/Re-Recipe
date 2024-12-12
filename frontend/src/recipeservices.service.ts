@@ -43,7 +43,7 @@ export class RecipeservicesService {
       .pipe(
         tap((response: any) => {
           this.isAuthenticated = response.loggedIn;
-          console.log("Recipeservice session check", this.isAuthenticated)
+          console.log('Recipeservice session check', this.isAuthenticated);
         })
       );
   }
@@ -220,5 +220,17 @@ export class RecipeservicesService {
     return this.http.post(`${this.hostUrl}/cookbook/addRecipes`, payload, {
       withCredentials: true,
     });
-}
+  }
+
+  /**
+   * Adds selected recipes to the user's cookbook in the backend database.
+   * @param userId - The ID of the user whose cookbook is being updated.
+   * @param recipeIds - An array of recipe IDs to be added to the cookbook.
+   * @returns An Observable that emits the response from the backend.
+   */
+  createCookbookRecipes(recipeIds: any[]): Observable<any> {
+    const url = `${this.hostUrl}discover/transfer`;
+    console.log('recipe service', recipeIds);
+    return this.http.post<any[]>(url, { recipeIds }, { withCredentials: true });
+  }
 }

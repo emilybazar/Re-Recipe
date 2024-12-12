@@ -47,24 +47,28 @@ class App {
     this.expressApp.use(bodyParser.json());
     this.expressApp.use(bodyParser.urlencoded({ extended: false }));
     this.expressApp.use(
-        (req: express.Request, res: express.Response, next: express.NextFunction) => {
-          res.header("Access-Control-Allow-Origin", "http://localhost:4200");
-          res.header(
-              "Access-Control-Allow-Headers",
-              "Origin, X-Requested-With, Content-Type, Accept"
-          );
-          res.header("Access-Control-Allow-Credentials", "true");
-          next();
-        }
+      (
+        req: express.Request,
+        res: express.Response,
+        next: express.NextFunction
+      ) => {
+        res.header("Access-Control-Allow-Origin", "http://localhost:4200");
+        res.header(
+          "Access-Control-Allow-Headers",
+          "Origin, X-Requested-With, Content-Type, Accept"
+        );
+        res.header("Access-Control-Allow-Credentials", "true");
+        next();
+      }
     );
 
     this.expressApp.use(cookieParser());
     this.expressApp.use(
-        session({
-          secret: "1234567890QWERTY",
-          resave: false,
-          saveUninitialized: true,
-        })
+      session({
+        secret: "1234567890QWERTY",
+        resave: false,
+        saveUninitialized: true,
+      })
     );
 
     this.expressApp.use(passport.initialize());
@@ -75,34 +79,71 @@ class App {
     const router = express.Router();
 
     router.get(
-        "/app/discover",
-        async (req: express.Request, res: express.Response): Promise<void> => {
-          await this.DiscoverModel.retrieveAllRecipes(res);
-        }
+      "/app/discover",
+      async (req: express.Request, res: express.Response): Promise<void> => {
+        await this.DiscoverModel.retrieveAllRecipes(res);
+      }
     );
 
     router.get(
-        "/app/discover/:recipeID",
-        async (req: express.Request, res: express.Response): Promise<void> => {
-          const recipeID: string = req.params.recipeID;
-          await this.DiscoverModel.retrieveRecipe(res, recipeID);
-        }
+      "/app/discover/:recipeID",
+      async (req: express.Request, res: express.Response): Promise<void> => {
+        const recipeID: string = req.params.recipeID;
+        await this.DiscoverModel.retrieveRecipe(res, recipeID);
+      }
     );
 
     router.post(
-        "/app/discover",
-        async (req: express.Request, res: express.Response): Promise<void> => {
-          const newRecipeData = req.body;
-          await this.DiscoverModel.createRecipe(res, newRecipeData);
-        }
+      "/app/discover",
+      async (req: express.Request, res: express.Response): Promise<void> => {
+        const newRecipeData = req.body;
+        await this.DiscoverModel.createRecipe(res, newRecipeData);
+      }
     );
 
     router.delete(
-        "/app/discover/:recipeID",
-        async (req: express.Request, res: express.Response): Promise<void> => {
-          const recipeID: string = req.params.recipeID;
-          await this.DiscoverModel.deleteRecipe(res, recipeID);
+      "/app/discover/:recipeID",
+      async (req: express.Request, res: express.Response): Promise<void> => {
+        const recipeID: string = req.params.recipeID;
+        await this.DiscoverModel.deleteRecipe(res, recipeID);
+      }
+    );
+
+    // Add a new recipe to the cookbook collection from Discover
+    router.post(
+      "/app/discover/transfer",
+      this.validateAuth,
+      async (req: express.Request, res: express.Response) => {
+        console.log("here in app");
+        try {
+          const recipeIDs = Object.values(req.body)[0];
+
+          const userId = req.user?.id;
+
+          console.log("Request Body:", req.body);
+          console.log(typeof recipeIDs);
+          console.log(typeof Object.values(recipeIDs[0]));
+          console.log(recipeIDs[0]);
+
+          console.log(typeof recipeIDs[0][0]);
+
+          // console.log("recIDS:", recipeIDs.type());
+
+          // Validate input
+          if (!Array.isArray(recipeIDs) || recipeIDs.length === 0) {
+            return res.status(400).json({ error: "Invalid recipe IDs" });
+          }
+          // Extract user_ID from req.user
+
+          if (!userId) {
+            return res.status(401).json({ error: "Unauthorized" });
+          }
+          await this.Cookbook.copyRecipesFromDiscover(res, recipeIDs, userId);
+        } catch (error) {
+          console.error(error);
+          res.status(500).json({ error: "error adding recipes to cookbook" });
         }
+      }
     );
 
     router.get("/app/cookbook", this.validateAuth, async (req, res) => {
@@ -114,7 +155,9 @@ class App {
         await this.Cookbook.getAllCookbookRecipes(res, userId);
       } catch (error) {
         console.error("Error getting cookbook:", error);
-        res.status(500).json({ error: "An error occurred while retrieving the cookbook." });
+        res
+          .status(500)
+          .json({ error: "An error occurred while retrieving the cookbook." });
       }
     });
 
@@ -124,17 +167,17 @@ class App {
     );
 
     router.get(
-        "/app/auth/google/callback",
-        passport.authenticate("google", { failureRedirect: "/" }),
-        async (req, res) => {
-          const googleUser = req.user;
-          const user = await this.UserModel.findOrCreateUser(googleUser);
-          console.log("User successfully authenticated:", user);
-          res.redirect("http://localhost:4200/discover");
-        }
+      "/app/auth/google/callback",
+      passport.authenticate("google", { failureRedirect: "/" }),
+      async (req, res) => {
+        const googleUser = req.user;
+        const user = await this.UserModel.findOrCreateUser(googleUser);
+        console.log("User successfully authenticated:", user);
+        res.redirect("http://localhost:4200/discover");
+      }
     );
 
-    router.get("/app/auth/check", this.validateAuth,(req, res) => {
+    router.get("/app/auth/check", this.validateAuth, (req, res) => {
       if (req.isAuthenticated()) {
         res.json({ loggedIn: true });
       } else {
@@ -156,7 +199,9 @@ class App {
         }
       } catch (error) {
         console.error("Error retrieving profile:", error);
-        res.status(500).json({ error: "An error occurred while retrieving the profile." });
+        res
+          .status(500)
+          .json({ error: "An error occurred while retrieving the profile." });
       }
     });
 
@@ -165,4 +210,3 @@ class App {
 }
 
 export { App };
-
