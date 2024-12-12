@@ -10,7 +10,7 @@ class RecipeContents {
     this.createModel();
   }
 
-  public createSchema() {
+  private createSchema(): void {
     const schemaDefinition: mongoose.SchemaDefinition<IRecipeContents> = {
       user_ID: { type: String, required: true },
       recipe_ID: { type: mongoose.Schema.Types.ObjectId, ref: "Recipe", required: true },
@@ -36,21 +36,50 @@ class RecipeContents {
       notes: { type: String },
     };
 
-    // Attach schema definition to the Mongoose schema
     this.schema = new mongoose.Schema(schemaDefinition, { collection: "recipe_contents" });
   }
 
-  public createModel() {
+  private createModel(): void {
     this.contents = mongoose.model<IRecipeContents>("RecipeContents", this.schema, "recipe_contents");
+  }
+
+  // Static method for deletion by ID
+  public static async deleteById(recipe_ID: string): Promise<void> {
+    try {
+      if (!mongoose.Types.ObjectId.isValid(recipe_ID)) {
+        throw new Error(`Invalid ObjectId format: ${recipe_ID}`);
+      }
+
+      const result = await RecipeContentsModel.deleteOne({ _id: recipe_ID }).exec();
+
+      if (result.deletedCount === 0) {
+        console.warn(`No recipe content found with ID: ${recipe_ID}`);
+      } else {
+        console.log(`Successfully deleted recipe content with ID: ${recipe_ID}`);
+      }
+    } catch (error) {
+      console.error(`Error deleting recipe content with ID: ${recipe_ID}`, error);
+      throw new Error(`Failed to delete recipe content with ID: ${recipe_ID}`);
+    }
   }
 
   // Static methods for querying
   public static async findByRecipeID(recipe_ID: string): Promise<IRecipeContents[]> {
-    return RecipeContentsModel.find({ recipe_ID }).exec();
+    try {
+      return RecipeContentsModel.find({ recipe_ID }).exec();
+    } catch (error) {
+      console.error(`Error finding recipe contents by recipe_ID: ${recipe_ID}`, error);
+      throw new Error(`Failed to find recipe contents by recipe_ID: ${recipe_ID}`);
+    }
   }
 
   public static async findByUserID(user_ID: string): Promise<IRecipeContents[]> {
-    return RecipeContentsModel.find({ user_ID }).exec();
+    try {
+      return RecipeContentsModel.find({ user_ID }).exec();
+    } catch (error) {
+      console.error(`Error finding recipe contents by user_ID: ${user_ID}`, error);
+      throw new Error(`Failed to find recipe contents by user_ID: ${user_ID}`);
+    }
   }
 }
 
