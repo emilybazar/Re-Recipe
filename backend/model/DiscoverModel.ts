@@ -150,22 +150,67 @@ public async retrieveAllRecipes(response: any): Promise<void> {
             response.status(500).json({ error: "Failed to retrieve recipe" });
         }
     }
-    public async deleteRecipe(response: any, recipe_ID: string) {
+    public async deleteRecipe(response: any, recipe_ID: string): Promise<void> {
         try {
-            const objectId = new ObjectId(recipe_ID);
-            const result = await this.model.deleteOne({ _id: objectId }).exec();
+            // Convert recipe_ID to ObjectId using the helper
+            const objectId = DiscoverModel.toObjectId(recipe_ID);
     
-            if (result.deletedCount > 0) {
-                response.json({ message: `Recipe ${recipe_ID} deleted successfully.` });
-            } else {
-                response.status(404).json({ error: "Recipe not found" });
+            // Find the Discover document by recipe_ID
+            const recipe = await this.model
+                .findOne({ recipe_ID: objectId })
+                .populate("recipe_versions") // Populate recipe_versions to retrieve related content
+                .exec();
+    
+            if (!recipe) {
+                throw new Error("Recipe not found in Discover collection");
             }
-        } catch (e) {
-            console.error("Failed to delete recipe:", e);
-            response.status(500).json({ error: "Failed to delete recipe" });
+    
+            console.log("Deleting recipe with recipe_ID:", recipe_ID);
+    
+            // Delete all referenced recipe_versions from the RecipeContents collection
+            const recipeVersionDeletionPromises = recipe.recipe_versions.map(versionId =>
+                RecipeContentsModel.deleteOne({ recipe_ID: objectId }).exec()
+            );
+            await Promise.all(recipeVersionDeletionPromises);
+            console.log("All referenced recipe_versions deleted");
+    
+            // Delete the main recipe document from the Recipe collection
+            const recipeDeletionResult = await this.recipeModel.recipe.deleteOne({ recipe_ID: objectId }).exec();
+            if (recipeDeletionResult.deletedCount === 0) {
+                console.warn(`Recipe with ID ${objectId} not found in the Recipe collection`);
+            } else {
+                console.log(`Recipe with ID ${objectId} deleted from the Recipe collection`);
+            }
+    
+            // Delete the Discover document
+            const discoverDeletionResult = await this.model.deleteOne({ recipe_ID: objectId }).exec();
+            if (discoverDeletionResult.deletedCount === 0) {
+                console.warn(`Discover document with recipe_ID ${objectId} not found`);
+            } else {
+                console.log(`Discover document with recipe_ID ${objectId} deleted successfully`);
+            }
+    
+            response.status(200).json({ message: "Recipe and related content deleted successfully" });
+        } catch (error) {
+            console.error("Error deleting recipe and related content:", error);
+            response.status(500).json({ error: "Failed to delete recipe and related content" });
         }
     }
+    
+
+    // Helper function to convert to ObjectId
+    private static toObjectId(id: string | mongoose.Types.ObjectId): mongoose.Types.ObjectId {
+        if (typeof id === "string") {
+        if (mongoose.Types.ObjectId.isValid(id)) {
+            return new mongoose.Types.ObjectId(id);
+        } else {
+            throw new Error(`Invalid ObjectId format: ${id}`);
+        }
+        } else if (id instanceof mongoose.Types.ObjectId) {
+        return id; // Already an ObjectId
+        } else {
+        throw new Error(`Invalid ID type: ${typeof id}`);
+        }
+  }
 }
-
-
 export { DiscoverModel };
